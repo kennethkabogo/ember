@@ -14,7 +14,7 @@ const { SECURITY } = require('../contracts/constants');
  * @param {number} gasPrice - Current gas price in gwei
  * @returns {Object} Profit calculation details
  */
- */
+
 async function calculateProfit(uniAmount, uniPrice, jarTokens, threshold, gasPrice) {
     // Calculate gas costs
     const TRANSFER_GAS_COST = 60000; // Approx gas per token transfer
