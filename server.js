@@ -74,6 +74,62 @@ const firepitContract = new ethers.Contract(CONTRACTS.FIREPIT, FIREPIT_ABI, prov
 const uniContract = new ethers.Contract(CONTRACTS.UNI_TOKEN, ERC20_ABI, provider);
 
 /**
+ * Internal logic helpers to avoid recursive HTTP calls
+ */
+async function fetchJarBalanceData() {
+    const tokenAddresses = [
+        CONTRACTS.USDT,
+        CONTRACTS.USDC,
+        CONTRACTS.WETH,
+        CONTRACTS.WBTC,
+        CONTRACTS.PAXG
+    ];
+
+    const balancePromises = tokenAddresses.map(async (address) => {
+        const contract = new ethers.Contract(address, ERC20_ABI, provider);
+        const [balance, decimals, symbol] = await Promise.all([
+            contract.balanceOf(CONTRACTS.TOKEN_JAR),
+            contract.decimals(),
+            contract.symbol()
+        ]);
+
+        return {
+            address,
+            symbol,
+            balance: balance.toString(),
+            decimals: Number(decimals)
+        };
+    });
+
+    const balances = await Promise.all(balancePromises);
+    const nonZeroBalances = balances.filter(b => b.balance !== '0');
+    const addresses = nonZeroBalances.map(b => b.address);
+    const prices = await getMultipleTokenPrices(addresses);
+
+    const jarContents = nonZeroBalances.map(token => ({
+        ...token,
+        price: prices[token.address.toLowerCase()] || 0
+    }));
+
+    let totalValueUSD = 0;
+    for (const token of jarContents) {
+        const balanceEth = parseFloat(ethers.formatUnits(token.balance, token.decimals));
+        totalValueUSD += balanceEth * token.price;
+    }
+
+    return { success: true, jarAddress: CONTRACTS.TOKEN_JAR, tokens: jarContents, totalValueUSD, timestamp: Date.now() };
+}
+
+async function fetchThresholdData() {
+    const threshold = await firepitContract.threshold();
+    const thresholdEth = ethers.formatEther(threshold);
+    const uniPrice = await getUniPrice();
+    const thresholdUSD = parseFloat(thresholdEth) * uniPrice;
+
+    return { success: true, threshold: threshold.toString(), thresholdEth, thresholdUSD, timestamp: Date.now() };
+}
+
+/**
  * Health check endpoint
  */
 app.get('/api/health', (req, res) => {
@@ -85,67 +141,11 @@ app.get('/api/health', (req, res) => {
  */
 app.get('/api/jar-balance', async (req, res) => {
     try {
-        const tokenAddresses = [
-            CONTRACTS.USDT,
-            CONTRACTS.USDC,
-            CONTRACTS.WETH,
-            CONTRACTS.WBTC,
-            CONTRACTS.PAXG
-        ];
-
-        // Get balances for all tokens in parallel
-        const balancePromises = tokenAddresses.map(async (address) => {
-            const contract = new ethers.Contract(address, ERC20_ABI, provider);
-            const [balance, decimals, symbol] = await Promise.all([
-                contract.balanceOf(CONTRACTS.TOKEN_JAR),
-                contract.decimals(),
-                contract.symbol()
-            ]);
-
-            return {
-                address,
-                symbol,
-                balance: balance.toString(),
-                decimals: Number(decimals)
-            };
-        });
-
-        const balances = await Promise.all(balancePromises);
-
-        // Filter out tokens with zero balance
-        const nonZeroBalances = balances.filter(b => b.balance !== '0');
-
-        // Get prices for non-zero tokens
-        const addresses = nonZeroBalances.map(b => b.address);
-        const prices = await getMultipleTokenPrices(addresses);
-
-        // Combine balance and price data
-        const jarContents = nonZeroBalances.map(token => ({
-            ...token,
-            price: prices[token.address.toLowerCase()] || 0
-        }));
-
-        // Calculate total value
-        let totalValueUSD = 0;
-        for (const token of jarContents) {
-            const balanceEth = parseFloat(ethers.formatUnits(token.balance, token.decimals));
-            totalValueUSD += balanceEth * token.price;
-        }
-
-        res.json(sanitizeResponse({
-            success: true,
-            jarAddress: CONTRACTS.TOKEN_JAR,
-            tokens: jarContents,
-            totalValueUSD,
-            timestamp: Date.now()
-        }));
-
+        const data = await fetchJarBalanceData();
+        res.json(sanitizeResponse(data));
     } catch (error) {
         console.error('Error fetching jar balance:', error);
-        res.status(500).json(sanitizeResponse({
-            success: false,
-            error: 'Failed to fetch jar balance'
-        }));
+        res.status(500).json(sanitizeResponse({ success: false, error: 'Failed' }));
     }
 });
 
@@ -154,25 +154,11 @@ app.get('/api/jar-balance', async (req, res) => {
  */
 app.get('/api/threshold', async (req, res) => {
     try {
-        const threshold = await firepitContract.threshold();
-        const thresholdEth = ethers.formatEther(threshold);
-        const uniPrice = await getUniPrice();
-        const thresholdUSD = parseFloat(thresholdEth) * uniPrice;
-
-        res.json(sanitizeResponse({
-            success: true,
-            threshold: threshold.toString(),
-            thresholdEth,
-            thresholdUSD,
-            timestamp: Date.now()
-        }));
-
+        const data = await fetchThresholdData();
+        res.json(sanitizeResponse(data));
     } catch (error) {
         console.error('Error fetching threshold:', error);
-        res.status(500).json(sanitizeResponse({
-            success: false,
-            error: 'Failed to fetch threshold'
-        }));
+        res.status(500).json(sanitizeResponse({ success: false, error: 'Failed' }));
     }
 });
 
@@ -181,30 +167,15 @@ app.get('/api/threshold', async (req, res) => {
  */
 app.get('/api/profitability', async (req, res) => {
     try {
-        // Get current gas price
-        const feeData = await provider.getFeeData();
+        const [feeData, jarData, thresholdData, uniPrice] = await Promise.all([
+            provider.getFeeData(),
+            fetchJarBalanceData(),
+            fetchThresholdData(),
+            getUniPrice()
+        ]);
+
         const gasPriceGwei = Number(ethers.formatUnits(feeData.gasPrice || 0n, 'gwei'));
 
-        // Get jar contents
-        const jarResponse = await fetch(`http://localhost:${PORT}/api/jar-balance`);
-        const jarData = await jarResponse.json();
-
-        if (!jarData.success) {
-            throw new Error('Failed to fetch jar data');
-        }
-
-        // Get threshold
-        const thresholdResponse = await fetch(`http://localhost:${PORT}/api/threshold`);
-        const thresholdData = await thresholdResponse.json();
-
-        if (!thresholdData.success) {
-            throw new Error('Failed to fetch threshold');
-        }
-
-        // Get UNI price
-        const uniPrice = await getUniPrice();
-
-        // Calculate optimal burn and profit
         const optimal = calculateOptimalBurn(
             jarData.tokens,
             uniPrice,
@@ -215,7 +186,6 @@ app.get('/api/profitability', async (req, res) => {
         res.json(sanitizeResponse({
             success: true,
             ...formatProfitData(optimal),
-            // Pass raw optimal addresses for the transaction execution
             optimalTokens: optimal.tokenBreakdown.map(t => t.address),
             gasPriceGwei,
             timestamp: Date.now()
@@ -223,10 +193,7 @@ app.get('/api/profitability', async (req, res) => {
 
     } catch (error) {
         console.error('Error calculating profitability:', error);
-        res.status(500).json(sanitizeResponse({
-            success: false,
-            error: 'Failed to calculate profitability'
-        }));
+        res.status(500).json(sanitizeResponse({ success: false, error: 'Failed' }));
     }
 });
 
