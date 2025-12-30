@@ -14,72 +14,79 @@ const { SECURITY } = require('../contracts/constants');
  * @param {number} gasPrice - Current gas price in gwei
  * @returns {Object} Profit calculation details
  */
-// Calculate gas costs
-const TRANSFER_GAS_COST = 60000; // Approx gas per token transfer
-const BASE_GAS_COST = 100000;    // Approx base gas for transaction
+ */
+async function calculateProfit(uniAmount, uniPrice, jarTokens, threshold, gasPrice) {
+    // Calculate gas costs
+    const TRANSFER_GAS_COST = 60000; // Approx gas per token transfer
+    const BASE_GAS_COST = 100000;    // Approx base gas for transaction
 
-const ethPrice = (jarTokens.find(t => t.symbol === 'WETH')?.price || 2000); // Fallback ETH price
-const gasPriceEth = gasPrice / 1e9;
-const transferCostUSD = (TRANSFER_GAS_COST * gasPriceEth) * ethPrice;
+    // Conversions
+    const uniAmountEth = parseFloat(ethers.formatEther(uniAmount));
+    const thresholdEth = parseFloat(ethers.formatEther(threshold));
+    const uniCostUSD = uniAmountEth * uniPrice;
 
-// Filter tokens: Keep only if Value > Transfer Cost
-const optimalTokens = [];
-const dustTokens = [];
-let optimizedJarValueUSD = 0;
+    const ethPrice = (jarTokens.find(t => t.symbol === 'WETH')?.price || 2000); // Fallback ETH price
+    const gasPriceEth = gasPrice / 1e9;
+    const transferCostUSD = (TRANSFER_GAS_COST * gasPriceEth) * ethPrice;
 
-for (const token of jarTokens) {
-    const balanceEth = parseFloat(ethers.formatUnits(token.balance, token.decimals || 18));
-    const valueUSD = balanceEth * token.price;
+    // Filter tokens: Keep only if Value > Transfer Cost
+    const optimalTokens = [];
+    const dustTokens = [];
+    let optimizedJarValueUSD = 0;
 
-    if (valueUSD > transferCostUSD) {
-        optimalTokens.push({
-            ...token,
-            balanceEth,
-            valueUSD,
-            netValueUSD: valueUSD - transferCostUSD
-        });
-        optimizedJarValueUSD += valueUSD;
-    } else {
-        dustTokens.push({
-            ...token,
-            balanceEth,
-            valueUSD,
-            costToClaimUSD: transferCostUSD
-        });
+    for (const token of jarTokens) {
+        const balanceEth = parseFloat(ethers.formatUnits(token.balance, token.decimals || 18));
+        const valueUSD = balanceEth * token.price;
+
+        if (valueUSD > transferCostUSD) {
+            optimalTokens.push({
+                ...token,
+                balanceEth,
+                valueUSD,
+                netValueUSD: valueUSD - transferCostUSD
+            });
+            optimizedJarValueUSD += valueUSD;
+        } else {
+            dustTokens.push({
+                ...token,
+                balanceEth,
+                valueUSD,
+                costToClaimUSD: transferCostUSD
+            });
+        }
     }
-}
 
-// Recalculate Total Estimated Gas based on OPTIMAL tokens only
-const estimatedGas = BASE_GAS_COST + (optimalTokens.length * TRANSFER_GAS_COST);
-const totalGasCostEth = (estimatedGas * gasPrice) / 1e9;
-const totalGasCostUSD = totalGasCostEth * ethPrice;
+    // Recalculate Total Estimated Gas based on OPTIMAL tokens only
+    const estimatedGas = BASE_GAS_COST + (optimalTokens.length * TRANSFER_GAS_COST);
+    const totalGasCostEth = (estimatedGas * gasPrice) / 1e9;
+    const totalGasCostUSD = totalGasCostEth * ethPrice;
 
-// Calculate profit
-const grossProfit = optimizedJarValueUSD - uniCostUSD;
-const netProfit = grossProfit - totalGasCostUSD;
-const profitPercentage = uniCostUSD > 0 ? (netProfit / uniCostUSD) * 100 : 0;
+    // Calculate profit
+    const grossProfit = optimizedJarValueUSD - uniCostUSD;
+    const netProfit = grossProfit - totalGasCostUSD;
+    const profitPercentage = uniCostUSD > 0 ? (netProfit / uniCostUSD) * 100 : 0;
 
-// Calculate minimum output with slippage protection
-const minimumOutputUSD = optimizedJarValueUSD * (1 - SECURITY.DEFAULT_SLIPPAGE_TOLERANCE / 100);
+    // Calculate minimum output with slippage protection
+    const minimumOutputUSD = optimizedJarValueUSD * (1 - SECURITY.DEFAULT_SLIPPAGE_TOLERANCE / 100);
 
-return {
-    uniAmount: uniAmountEth,
-    uniCostUSD,
-    totalJarValueUSD: optimizedJarValueUSD, // Value of claimable tokens only
-    gasCostUSD: totalGasCostUSD,
-    grossProfit,
-    netProfit,
-    profitPercentage,
-    minimumOutputUSD,
-    isProfitable: netProfit > 0,
-    meetsThreshold: uniAmountEth >= thresholdEth,
-    tokenBreakdown: optimalTokens,     // Only show profitable tokens
-    dustTokens,                        // Return dust for UI feedback
-    estimatedGas,
-    allTokensCount: jarTokens.length,  // Total count for comparison
-    filteredCount: dustTokens.length,
-    savedGasUSD: dustTokens.length * transferCostUSD
-};
+    return {
+        uniAmount: uniAmountEth,
+        uniCostUSD,
+        totalJarValueUSD: optimizedJarValueUSD, // Value of claimable tokens only
+        gasCostUSD: totalGasCostUSD,
+        grossProfit,
+        netProfit,
+        profitPercentage,
+        minimumOutputUSD,
+        isProfitable: netProfit > 0,
+        meetsThreshold: uniAmountEth >= thresholdEth,
+        tokenBreakdown: optimalTokens,     // Only show profitable tokens
+        dustTokens,                        // Return dust for UI feedback
+        estimatedGas,
+        allTokensCount: jarTokens.length,  // Total count for comparison
+        filteredCount: dustTokens.length,
+        savedGasUSD: dustTokens.length * transferCostUSD
+    };
 }
 
 /**
