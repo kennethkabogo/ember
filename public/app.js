@@ -199,11 +199,7 @@ function updateProfitabilityUI(data) {
     // Update calculator values
     document.getElementById('uniAmount').textContent = `${parseFloat(data.uniAmount).toLocaleString()} UNI`;
     document.getElementById('uniCost').textContent = data.uniCostUSD;
-    // Gas cost removed from top grid, moved to calculation area or tooltip logic if needed, 
-    // but here we are replacing "Gas Estimate" with "Break Even Price" in the grid.
-    // So we update the new element ID:
     document.getElementById('breakEvenPrice').textContent = data.breakEvenUniPrice;
-
     document.getElementById('netProfit').textContent = data.netProfit;
 
     // Update Equation Values
@@ -215,47 +211,42 @@ function updateProfitabilityUI(data) {
     // Update profit styling
     const netProfitEl = document.getElementById('netProfit');
     const executeBtn = document.getElementById('executeBtn');
+    const eqOperator = document.getElementById('eqOperatorCircle');
+    const eqOutputUSD = document.getElementById('eqOutputUSD');
 
     if (data.isProfitable === 'true') {
-        // ... (Handled in next block)
+        netProfitEl.className = 'profit-val positive';
+
+        // Equation Visuals (Profitable)
+        eqOperator.textContent = '>';
+        eqOperator.className = 'operator-circle positive';
+        eqOutputUSD.style.color = 'var(--success)';
+
+        if (executeBtn.textContent === 'Simulate Transaction') {
+            executeBtn.style.background = 'var(--success)';
+        }
     } else {
         netProfitEl.className = 'profit-val negative';
         executeBtn.style.background = 'var(--primary)';
 
-        // Update Equation Visuals (Unprofitable)
-        document.getElementById('eqOperatorCircle').textContent = '<';
-        document.getElementById('eqOperatorCircle').className = 'operator-circle negative';
-        document.getElementById('eqOutputUSD').style.color = 'var(--danger)';
+        // Equation Visuals (Unprofitable)
+        eqOperator.textContent = '<';
+        eqOperator.className = 'operator-circle negative';
+        eqOutputUSD.style.color = 'var(--danger)';
     }
-    netProfitEl.className = 'profit-val positive';
 
-    // Update Equation Visuals (Profitable)
-    document.getElementById('eqOperatorCircle').textContent = '>';
-    document.getElementById('eqOperatorCircle').className = 'operator-circle positive';
-    document.getElementById('eqOutputUSD').style.color = 'var(--success)';
+    // Update Dust Filter Badge
+    const dustBadge = document.getElementById('dustBadge');
+    const dustText = document.getElementById('dustText');
 
-    if (executeBtn.textContent === 'Simulate Transaction') {
-        executeBtn.style.background = 'var(--success)';
+    if (data.filtered) {
+        dustBadge.style.display = 'flex';
+        dustText.textContent = `Filtered ${data.dustCount} dust tokens (Saved ${data.savedGas})`;
+        window.optimalTokens = data.optimalTokens;
+    } else {
+        dustBadge.style.display = 'none';
+        window.optimalTokens = null;
     }
-} else {
-    netProfitEl.className = 'profit-val negative';
-    executeBtn.style.background = 'var(--primary)';
-}
-
-// Update Dust Filter Badge
-const dustBadge = document.getElementById('dustBadge');
-const dustText = document.getElementById('dustText');
-
-if (data.filtered) {
-    dustBadge.style.display = 'flex';
-    dustText.textContent = `Filtered ${data.dustCount} dust tokens (Saved ${data.savedGas})`;
-
-    // Store optimal tokens for execution
-    window.optimalTokens = data.optimalTokens;
-} else {
-    dustBadge.style.display = 'none';
-    window.optimalTokens = null;
-}
 }
 
 // Transaction Preparation
@@ -439,6 +430,30 @@ async function executeTransaction() {
         // Wait for confirmation
         await releaseTx.wait();
         alert('Transaction confirmed! ✅');
+
+        // Step 3: Optional Tip (Fair Play)
+        const tipChecked = document.getElementById('tipCheckbox').checked;
+        if (tipChecked) {
+            try {
+                const tipAmount = window.ethers.utils.parseEther("0.01");
+                const DEV_WALLET = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"; // Use a real fallback or mine
+
+                // For this demo, we can skip if address is zero.
+                // But to show logic: check balance.
+                const balance = await provider.getBalance(userAddress);
+                if (balance.gt(tipAmount)) {
+                    if (confirm("Arbitrage success! Process 0.01 ETH tip?")) {
+                        const tipTx = await signer.sendTransaction({
+                            to: DEV_WALLET,
+                            value: tipAmount
+                        });
+                        alert("Tip sent! You're awesome. ☕");
+                    }
+                }
+            } catch (tipError) {
+                console.log("Tip skipped or failed:", tipError);
+            }
+        }
 
         // Refresh data
         loadJarData();

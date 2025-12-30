@@ -111,6 +111,17 @@
         <div class="modal-card">
             <h2 class="section-title" style="text-align: center; margin-bottom: 24px;">Confirm Trade</h2>
             <div id="confirmDetails" style="margin-bottom: 24px;"></div>
+
+            <!-- Tip Jar -->
+            <div
+                style="margin-bottom: 20px; padding: 12px; background: rgba(52, 120, 246, 0.1); border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="tipCheckbox" checked
+                    style="accent-color: var(--primary); width: 16px; height: 16px;">
+                <label for="tipCheckbox" style="font-size: 13px; color: var(--text-primary); cursor: pointer;">
+                    Send 0.01 ETH Developer Tip? ☕
+                </label>
+            </div>
+
             <div style="display: flex; gap: 12px;">
                 <button id="cancelBtn" class="execute-btn"
                     style="background: var(--bg-card-secondary); color: var(--text-primary);">Cancel</button>
