@@ -206,35 +206,56 @@ function updateProfitabilityUI(data) {
 
     document.getElementById('netProfit').textContent = data.netProfit;
 
+    // Update Equation Values
+    document.getElementById('eqInputAmount').textContent = `${parseFloat(data.uniAmount).toLocaleString()} UNI`;
+    document.getElementById('eqInputUSD').textContent = data.uniCostUSD;
+    document.getElementById('eqOutputLabel').textContent = `${data.allTokensCount} Assets`;
+    document.getElementById('eqOutputUSD').textContent = data.totalJarValueUSD;
+
     // Update profit styling
     const netProfitEl = document.getElementById('netProfit');
     const executeBtn = document.getElementById('executeBtn');
 
     if (data.isProfitable === 'true') {
-        netProfitEl.className = 'profit-val positive';
-
-        if (executeBtn.textContent === 'Simulate Transaction') {
-            executeBtn.style.background = 'var(--success)';
-        }
+        // ... (Handled in next block)
     } else {
         netProfitEl.className = 'profit-val negative';
         executeBtn.style.background = 'var(--primary)';
+
+        // Update Equation Visuals (Unprofitable)
+        document.getElementById('eqOperatorCircle').textContent = '<';
+        document.getElementById('eqOperatorCircle').className = 'operator-circle negative';
+        document.getElementById('eqOutputUSD').style.color = 'var(--danger)';
     }
+    netProfitEl.className = 'profit-val positive';
 
-    // Update Dust Filter Badge
-    const dustBadge = document.getElementById('dustBadge');
-    const dustText = document.getElementById('dustText');
+    // Update Equation Visuals (Profitable)
+    document.getElementById('eqOperatorCircle').textContent = '>';
+    document.getElementById('eqOperatorCircle').className = 'operator-circle positive';
+    document.getElementById('eqOutputUSD').style.color = 'var(--success)';
 
-    if (data.filtered) {
-        dustBadge.style.display = 'flex';
-        dustText.textContent = `Filtered ${data.dustCount} dust tokens (Saved ${data.savedGas})`;
-
-        // Store optimal tokens for execution
-        window.optimalTokens = data.optimalTokens;
-    } else {
-        dustBadge.style.display = 'none';
-        window.optimalTokens = null;
+    if (executeBtn.textContent === 'Simulate Transaction') {
+        executeBtn.style.background = 'var(--success)';
     }
+} else {
+    netProfitEl.className = 'profit-val negative';
+    executeBtn.style.background = 'var(--primary)';
+}
+
+// Update Dust Filter Badge
+const dustBadge = document.getElementById('dustBadge');
+const dustText = document.getElementById('dustText');
+
+if (data.filtered) {
+    dustBadge.style.display = 'flex';
+    dustText.textContent = `Filtered ${data.dustCount} dust tokens (Saved ${data.savedGas})`;
+
+    // Store optimal tokens for execution
+    window.optimalTokens = data.optimalTokens;
+} else {
+    dustBadge.style.display = 'none';
+    window.optimalTokens = null;
+}
 }
 
 // Transaction Preparation

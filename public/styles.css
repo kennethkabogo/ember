@@ -215,6 +215,80 @@ header {
   font-size: 15px;
 }
 
+/* Visual Equation */
+.equation-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  background: var(--bg-card);
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.equation-box {
+  flex: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eq-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.eq-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.eq-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.eq-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.eq-operator {
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.operator-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-card-secondary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  transition: var(--transition);
+}
+
+.operator-circle.positive {
+  background: rgba(48, 209, 88, 0.2);
+  color: var(--success);
+}
+
+.operator-circle.negative {
+  background: rgba(255, 69, 58, 0.2);
+  color: var(--danger);
+}
+
 /* Execution Interface */
 .execution-panel {
   background: var(--bg-card);
