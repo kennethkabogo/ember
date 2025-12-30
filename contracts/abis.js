@@ -25,6 +25,16 @@ const FIREPIT_ABI = [
         "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
         "stateMutability": "view",
         "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            { "indexed": true, "internalType": "uint256", "name": "nonce", "type": "uint256" },
+            { "indexed": false, "internalType": "address[]", "name": "assets", "type": "address[]" },
+            { "indexed": false, "internalType": "address", "name": "recipient", "type": "address" }
+        ],
+        "name": "Release",
+        "type": "event"
     }
 ];
 

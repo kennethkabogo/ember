@@ -199,7 +199,11 @@ function updateProfitabilityUI(data) {
     // Update calculator values
     document.getElementById('uniAmount').textContent = `${parseFloat(data.uniAmount).toLocaleString()} UNI`;
     document.getElementById('uniCost').textContent = data.uniCostUSD;
-    document.getElementById('gasCost').textContent = data.gasCostUSD;
+    // Gas cost removed from top grid, moved to calculation area or tooltip logic if needed, 
+    // but here we are replacing "Gas Estimate" with "Break Even Price" in the grid.
+    // So we update the new element ID:
+    document.getElementById('breakEvenPrice').textContent = data.breakEvenUniPrice;
+
     document.getElementById('netProfit').textContent = data.netProfit;
 
     // Update profit styling
@@ -424,17 +428,96 @@ async function executeTransaction() {
     }
 }
 
-// Auto-refresh data every 30 seconds
+
+
+// --- AUDIO ALERT SYSTEM ---
+let audioEnabled = false;
+let hasPlayedAlert = false;
+
+document.getElementById('audioToggle').addEventListener('click', () => {
+    audioEnabled = !audioEnabled;
+    const btn = document.getElementById('audioToggle');
+    btn.textContent = audioEnabled ? '🔊' : '🔇';
+
+    // Test sound on enable
+    if (audioEnabled) playSound(true);
+});
+
+function playSound(isTest = false) {
+    if (!audioEnabled && !isTest) return;
+
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(isTest ? 440 : 880, ctx.currentTime); // A4 (test) or A5 (alert)
+    osc.frequency.exponentialRampToValueAtTime(isTest ? 880 : 1760, ctx.currentTime + 0.1);
+
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+}
+
+// --- HISTORY SYSTEM ---
+async function loadHistory() {
+    try {
+        const response = await fetch('/api/history');
+        const data = await response.json();
+        const list = document.getElementById('activityList');
+
+        if (data.success && data.events.length > 0) {
+            list.innerHTML = '';
+            data.events.forEach(evt => {
+                const row = document.createElement('div');
+                row.className = 'token-item';
+                row.innerHTML = `
+                    <div style="display:flex; flex-direction:column;">
+                        <span style="color:var(--text-primary); font-size:14px;">Claimed ${evt.assetCount} Assets</span>
+                        <a href="https://etherscan.io/tx/${evt.hash}" target="_blank" style="color:var(--text-secondary); font-size:12px; text-decoration:none;">
+                            ${new Date(evt.timestamp).toLocaleString()} ↗
+                        </a>
+                    </div>
+                    <div style="color:var(--success);">Success</div>
+                `;
+                list.appendChild(row);
+            });
+        } else {
+            list.innerHTML = '<div class="token-item" style="justify-content: center; color: var(--text-secondary);">No recent activity (Jar is filling...)</div>';
+        }
+    } catch (e) {
+        console.error("History error", e);
+    }
+}
+
+// Update refresh loop to include history
 function startAutoRefresh() {
+    loadHistory(); // Initial load
     setInterval(() => {
         loadJarData();
+        loadHistory(); // Refresh history
     }, 30000);
 }
 
-// Prevent accidental page close during transaction
-window.addEventListener('beforeunload', (e) => {
-    if (window.pendingTransaction) {
-        e.preventDefault();
-        e.returnValue = '';
+// Hook into profit UI for sound
+const originalUpdateProfit = updateProfitabilityUI;
+updateProfitabilityUI = function (data) {
+    originalUpdateProfit(data);
+
+    if (data.isProfitable === 'true') {
+        if (!hasPlayedAlert) {
+            playSound();
+            hasPlayedAlert = true; // Play once per opportunity
+        }
+    } else {
+        hasPlayedAlert = false; // Reset when not profitable
     }
-});
+};

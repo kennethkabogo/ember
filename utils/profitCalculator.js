@@ -66,6 +66,10 @@ async function calculateProfit(uniAmount, uniPrice, jarTokens, threshold, gasPri
     const netProfit = grossProfit - totalGasCostUSD;
     const profitPercentage = uniCostUSD > 0 ? (netProfit / uniCostUSD) * 100 : 0;
 
+    // Calculate Break-Even UNI Price
+    // X = (JarValue - Gas) / UniAmount
+    const breakEvenUniPrice = uniAmountEth > 0 ? (optimizedJarValueUSD - totalGasCostUSD) / uniAmountEth : 0;
+
     // Calculate minimum output with slippage protection
     const minimumOutputUSD = optimizedJarValueUSD * (1 - SECURITY.DEFAULT_SLIPPAGE_TOLERANCE / 100);
 
@@ -85,7 +89,8 @@ async function calculateProfit(uniAmount, uniPrice, jarTokens, threshold, gasPri
         estimatedGas,
         allTokensCount: jarTokens.length,  // Total count for comparison
         filteredCount: dustTokens.length,
-        savedGasUSD: dustTokens.length * transferCostUSD
+        savedGasUSD: dustTokens.length * transferCostUSD,
+        breakEvenUniPrice: breakEvenUniPrice
     };
 }
 
@@ -144,7 +149,8 @@ function formatProfitData(profitData) {
         })),
         dustCount: profitData.filteredCount,
         savedGas: `$${profitData.savedGasUSD.toFixed(2)}`,
-        filtered: profitData.filteredCount > 0
+        filtered: profitData.filteredCount > 0,
+        breakEvenUniPrice: `$${profitData.breakEvenUniPrice.toFixed(2)}`
     };
 }
 

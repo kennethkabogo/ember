@@ -292,6 +292,47 @@ app.get('/api/gas-estimate', async (req, res) => {
     }
 });
 
+/**
+ * Get recent arbitrage history (Proof of Life)
+ */
+app.get('/api/history', async (req, res) => {
+    try {
+        // Get last 10,000 blocks (approx 1.5 days)
+        const currentBlock = await provider.getBlockNumber();
+        const fromBlock = currentBlock - 10000;
+
+        const filter = firepitContract.filters.Release();
+        const events = await firepitContract.queryFilter(filter, fromBlock);
+
+        // Sort descending
+        const recentEvents = await Promise.all(events.reverse().slice(0, 5).map(async (event) => {
+            const block = await event.getBlock();
+            return {
+                hash: event.transactionHash,
+                recipient: event.args[2], // recipient
+                assetCount: event.args[1].length, // assets array length
+                timestamp: block.timestamp * 1000,
+                date: new Date(block.timestamp * 1000).toLocaleString()
+            };
+        }));
+
+        res.json(sanitizeResponse({
+            success: true,
+            events: recentEvents,
+            timestamp: Date.now()
+        }));
+
+    } catch (error) {
+        console.error('Error fetching history:', error);
+        // Return empty array instead of error to not break UI
+        res.json(sanitizeResponse({
+            success: true,
+            events: [],
+            error: 'Failed to fetch full history'
+        }));
+    }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Server error:', err);
@@ -303,7 +344,7 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`🔒 Secure Token Jar Arbitrage API running on port ${PORT}`);
+    console.log(`\n🔥 Ember (formerly Unifire) - Arbitrage Monitor Port ${PORT}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔐 Security features enabled: Helmet, CORS, Rate Limiting`);
     console.log(`🚫 Privacy mode: No logging, No tracking, No data collection`);
