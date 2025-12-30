@@ -18,7 +18,9 @@
                 <p>Arbitrage Monitor</p>
             </div>
             <div style="display:flex; gap:10px; align-items:center;">
-                <button id="audioToggle" class="wallet-btn" style="padding: 8px 12px;">🔇</button>
+                <button id="audioToggle" class="icon-btn">
+                    <i data-lucide="volume-x" id="audioIcon"></i>
+                </button>
                 <button id="connectWallet" class="wallet-btn">Connect</button>
             </div>
         </header>
@@ -28,7 +30,7 @@
             <div class="balance-label">Total Value Locked</div>
             <div id="totalValue" class="balance-amount">$0.00</div>
             <div class="balance-change">
-                <span class="dot"></span> Live
+                <span class="pulse-dot"></span> Live
             </div>
         </div>
 
@@ -39,7 +41,7 @@
                 <div id="uniAmount" class="stat-value">--</div>
             </div>
             <div class="stat-box">
-                <div class="stat-title">Target UNI Price</div>
+                <div class="stat-title">Target Price</div>
                 <div id="breakEvenPrice" class="stat-value" style="color: var(--warning);">--</div>
             </div>
         </div>
@@ -49,13 +51,13 @@
             <h2 class="section-title">Assets</h2>
             <div id="tokenList" class="token-list">
                 <!-- Tokens injected here -->
-                <div class="token-item" style="justify-content: center; color: var(--text-secondary);">
-                    Loading assets...
+                <div class="token-item" style="justify-content: center; color: var(--text-secondary); padding: 32px;">
+                    <div class="loading-spinner"></div>
                 </div>
             </div>
             <!-- Dust Filter Badge -->
             <div id="dustBadge" class="dust-filter-badge" style="display: none;">
-                <span class="dot" style="background: var(--warning);"></span>
+                <i data-lucide="filter" style="width:12px; height:12px;"></i>
                 <span id="dustText">Filtered 0 dust tokens</span>
             </div>
         </div>
@@ -63,18 +65,20 @@
         <!-- The Visual Equation -->
         <div class="equation-container">
             <div class="equation-box input-box">
-                <div class="eq-icon">🔥</div>
+                <div class="eq-icon-wrap"><i data-lucide="flame"></i></div>
                 <div class="eq-label">INPUT</div>
                 <div id="eqInputAmount" class="eq-value">4000 UNI</div>
                 <div id="eqInputUSD" class="eq-sub">--</div>
             </div>
 
             <div class="eq-operator">
-                <div id="eqOperatorCircle" class="operator-circle">?</div>
+                <div id="eqOperatorCircle" class="operator-circle">
+                    <i data-lucide="arrow-right" id="eqIcon"></i>
+                </div>
             </div>
 
             <div class="equation-box output-box">
-                <div class="eq-icon">💎</div>
+                <div class="eq-icon-wrap"><i data-lucide="gem"></i></div>
                 <div class="eq-label">OUTPUT</div>
                 <div id="eqOutputLabel" class="eq-value">Assets</div>
                 <div id="eqOutputUSD" class="eq-sub">--</div>
@@ -101,7 +105,8 @@
 
         <!-- Footer Security -->
         <div class="security-badge">
-            <span class="dot"></span> Secure Client-Side Execution
+            <i data-lucide="shield-check" style="width: 14px; height: 14px;"></i>
+            <span>Secure Client-Side Execution</span>
         </div>
 
     </div>
@@ -109,28 +114,32 @@
     <!-- Confirm Modal -->
     <div id="confirmModal" class="modal-overlay">
         <div class="modal-card">
+            <div
+                style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: var(--primary);">
+                <i data-lucide="check-circle-2" style="width: 48px; height: 48px;"></i>
+            </div>
             <h2 class="section-title" style="text-align: center; margin-bottom: 24px;">Confirm Trade</h2>
             <div id="confirmDetails" style="margin-bottom: 24px;"></div>
 
             <!-- Tip Jar -->
-            <div
-                style="margin-bottom: 20px; padding: 12px; background: rgba(52, 120, 246, 0.1); border-radius: 8px; display: flex; align-items: center; gap: 10px;">
-                <input type="checkbox" id="tipCheckbox" checked
-                    style="accent-color: var(--primary); width: 16px; height: 16px;">
-                <label for="tipCheckbox" style="font-size: 13px; color: var(--text-primary); cursor: pointer;">
-                    Send 0.01 ETH Developer Tip? ☕
+            <div class="tip-jar-box">
+                <input type="checkbox" id="tipCheckbox" checked>
+                <label for="tipCheckbox">
+                    Send 0.01 ETH Developer Tip?
+                    <i data-lucide="coffee"
+                        style="width: 14px; height: 14px; margin-left: 4px; vertical-align: middle;"></i>
                 </label>
             </div>
 
             <div style="display: flex; gap: 12px;">
-                <button id="cancelBtn" class="execute-btn"
-                    style="background: var(--bg-card-secondary); color: var(--text-primary);">Cancel</button>
-                <button id="confirmBtn" class="execute-btn">Confirm</button>
+                <button id="cancelBtn" class="modal-btn secondary">Cancel</button>
+                <button id="confirmBtn" class="modal-btn primary">Confirm</button>
             </div>
         </div>
     </div>
 
     <!-- Scripts -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script src="ethers.min.js"></script>
     <script src="app.js"></script>
 </body>

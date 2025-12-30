@@ -31,17 +31,17 @@ let signer = null;
 let userAddress = null;
 let chainId = null;
 
-// Initialize app
 document.addEventListener('DOMContentLoaded', () => {
-    initializeApp();
+// Initialize app    initializeApp();
     setupEventListeners();
     loadJarData();
     startAutoRefresh();
+    // Initialize icons
+    if (window.lucide) window.lucide.createIcons();
 });
 
 function initializeApp() {
-    console.log('🔒 Token Jar Arbitrage - Privacy Mode Active');
-    console.log('🚫 No tracking, No logging, No data collection');
+    console.log('🔒 Ember v3 - Professional Mode Active');
 }
 
 function setupEventListeners() {
@@ -212,17 +212,18 @@ function updateProfitabilityUI(data) {
     const netProfitEl = document.getElementById('netProfit');
     const executeBtn = document.getElementById('executeBtn');
     const eqOperator = document.getElementById('eqOperatorCircle');
+    const eqIcon = document.getElementById('eqIcon');
     const eqOutputUSD = document.getElementById('eqOutputUSD');
 
     if (data.isProfitable === 'true') {
         netProfitEl.className = 'profit-val positive';
 
         // Equation Visuals (Profitable)
-        eqOperator.textContent = '>';
         eqOperator.className = 'operator-circle positive';
+        if (eqIcon) eqIcon.setAttribute('data-lucide', 'arrow-big-right');
         eqOutputUSD.style.color = 'var(--success)';
 
-        if (executeBtn.textContent === 'Simulate Transaction') {
+        if (executeBtn.textContent.includes('Simulate')) {
             executeBtn.style.background = 'var(--success)';
         }
     } else {
@@ -230,10 +231,13 @@ function updateProfitabilityUI(data) {
         executeBtn.style.background = 'var(--primary)';
 
         // Equation Visuals (Unprofitable)
-        eqOperator.textContent = '<';
         eqOperator.className = 'operator-circle negative';
+        if (eqIcon) eqIcon.setAttribute('data-lucide', 'arrow-right');
         eqOutputUSD.style.color = 'var(--danger)';
     }
+
+    // Refresh Icons for dynamic elements
+    if (window.lucide) window.lucide.createIcons();
 
     // Update Dust Filter Badge
     const dustBadge = document.getElementById('dustBadge');
@@ -472,8 +476,12 @@ let hasPlayedAlert = false;
 
 document.getElementById('audioToggle').addEventListener('click', () => {
     audioEnabled = !audioEnabled;
-    const btn = document.getElementById('audioToggle');
-    btn.textContent = audioEnabled ? '🔊' : '🔇';
+    const icon = document.getElementById('audioIcon');
+
+    if (icon) {
+        icon.setAttribute('data-lucide', audioEnabled ? 'volume-2' : 'volume-x');
+        if (window.lucide) window.lucide.createIcons();
+    }
 
     // Test sound on enable
     if (audioEnabled) playSound(true);
