@@ -176,7 +176,7 @@ app.get('/api/profitability', async (req, res) => {
 
         const gasPriceGwei = Number(ethers.formatUnits(feeData.gasPrice || 0n, 'gwei'));
 
-        const optimal = calculateOptimalBurn(
+        const optimal = await calculateOptimalBurn(
             jarData.tokens,
             uniPrice,
             thresholdData.threshold,
