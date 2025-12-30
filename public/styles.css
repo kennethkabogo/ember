@@ -1,0 +1,323 @@
+/* Premium Fintech Styling (Revolut/Apple Inspired) */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Revolut/Apple Dark Mode Palette */
+  --bg-body: #000000;
+  --bg-card: #1c1c1e;
+  /* Apple dark gray */
+  --bg-card-secondary: #2c2c2e;
+  --primary: #3478F6;
+  /* Apple Blue */
+  --primary-hover: #1e64d4;
+  --success: #30D158;
+  /* Apple Green */
+  --danger: #FF453A;
+  /* Apple Red */
+  --warning: #FF9F0A;
+  /* Apple Orange */
+  --text-primary: #FFFFFF;
+  --text-secondary: #8E8E93;
+  /* Apple Gray */
+  --separator: #38383a;
+
+  /* Effects */
+  --blur: blur(20px);
+  --radius-lg: 24px;
+  --radius-md: 16px;
+  --radius-sm: 8px;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 480px;
+  /* Mobile-first/App-like width */
+  padding: 0 20px 40px;
+}
+
+/* Header Config */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.brand h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.brand p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Wallet Button - Pill Style */
+.wallet-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.wallet-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.wallet-btn.connected {
+  background: rgba(48, 209, 88, 0.15);
+  color: var(--success);
+}
+
+/* Main Card (Balance) */
+.balance-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 32px 24px;
+  text-align: center;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.balance-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.balance-amount {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+
+.balance-change {
+  font-size: 14px;
+  color: var(--success);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Action Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-box {
+  background: var(--bg-card);
+  padding: 16px;
+  border-radius: var(--radius-md);
+}
+
+.stat-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Token List - Apple Settings Style */
+.token-section {
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+
+.token-list {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.token-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.token-item:last-child {
+  border-bottom: none;
+}
+
+.token-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.token-symbol {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.token-balance {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.token-value {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+/* Execution Interface */
+.execution-panel {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-top: 24px;
+}
+
+.profit-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.profit-label {
+  color: var(--text-secondary);
+}
+
+.profit-val {
+  font-weight: 600;
+}
+
+.profit-val.positive {
+  color: var(--success);
+}
+
+.profit-val.negative {
+  color: var(--danger);
+}
+
+/* Primary Action Button */
+.execute-btn {
+  width: 100%;
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.execute-btn:disabled {
+  background: var(--bg-card-secondary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.execute-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: scale(1.02);
+}
+
+/* Security Badge */
+.security-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 24px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  background: var(--success);
+  border-radius: 50%;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: var(--transition);
+  z-index: 100;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal-card {
+  background: var(--bg-card);
+  width: 90%;
+  max-width: 360px;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  transform: scale(0.9);
+  transition: var(--transition);
+}
+
+.modal-overlay.active .modal-card {
+  transform: scale(1);
+}

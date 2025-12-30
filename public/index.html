@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Token Jar</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <div class="brand">
+                <h1>Token Jar</h1>
+                <p>Arbitrage Solver</p>
+            </div>
+            <button id="connectWallet" class="wallet-btn">Connect</button>
+        </header>
+
+        <!-- Main Balance Display -->
+        <div class="balance-card">
+            <div class="balance-label">Total Value Locked</div>
+            <div id="totalValue" class="balance-amount">$0.00</div>
+            <div class="balance-change">
+                <span class="dot"></span> Live
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-title">UNI Threshold</div>
+                <div id="uniAmount" class="stat-value">--</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-title">Gas Estimate</div>
+                <div id="gasCost" class="stat-value">--</div>
+            </div>
+        </div>
+
+        <!-- Token List -->
+        <div class="token-section">
+            <h2 class="section-title">Assets</h2>
+            <div id="tokenList" class="token-list">
+                <!-- Tokens injected here -->
+                <div class="token-item" style="justify-content: center; color: var(--text-secondary);">
+                    Loading assets...
+                </div>
+            </div>
+            <!-- Dust Filter Badge -->
+            <div id="dustBadge" class="dust-filter-badge" style="display: none;">
+                <span class="dot" style="background: var(--warning);"></span>
+                <span id="dustText">Filtered 0 dust tokens</span>
+            </div>
+        </div>
+
+        <!-- Profit Calculator & Execution -->
+        <div class="execution-panel">
+            <h2 class="section-title">Analysis</h2>
+
+            <div class="profit-row">
+                <span class="profit-label">Cost to Burn</span>
+                <span id="uniCost" class="profit-val">--</span>
+            </div>
+            <div class="profit-row">
+                <span class="profit-label">Net Profit</span>
+                <span id="netProfit" class="profit-val">--</span>
+            </div>
+
+            <button id="executeBtn" class="execute-btn" disabled>
+                Connect Wallet
+            </button>
+        </div>
+
+        <!-- Footer Security -->
+        <div class="security-badge">
+            <span class="dot"></span> Secure Client-Side Execution
+        </div>
+
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2 class="section-title" style="text-align: center; margin-bottom: 24px;">Confirm Trade</h2>
+            <div id="confirmDetails" style="margin-bottom: 24px;"></div>
+            <div style="display: flex; gap: 12px;">
+                <button id="cancelBtn" class="execute-btn"
+                    style="background: var(--bg-card-secondary); color: var(--text-primary);">Cancel</button>
+                <button id="confirmBtn" class="execute-btn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="ethers.min.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
