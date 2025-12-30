@@ -102,14 +102,14 @@ async function calculateProfit(uniAmount, uniPrice, jarTokens, threshold, gasPri
  * @param {number} gasPrice - Current gas price in gwei
  * @returns {Object} Optimal burn amount and expected profit
  */
-function calculateOptimalBurn(jarTokens, uniPrice, threshold, gasPrice) {
+async function calculateOptimalBurn(jarTokens, uniPrice, threshold, gasPrice) {
     const thresholdEth = parseFloat(ethers.formatEther(threshold));
 
     // Optimal burn is the threshold (minimum required)
     const optimalBurnWei = threshold; // Keep as BigInt/String from input
 
     // Calculate profit using the Gas Arbitration logic above
-    const profit = calculateProfit(
+    const profit = await calculateProfit(
         optimalBurnWei,
         uniPrice,
         jarTokens,
@@ -150,7 +150,8 @@ function formatProfitData(profitData) {
         dustCount: profitData.filteredCount,
         savedGas: `$${profitData.savedGasUSD.toFixed(2)}`,
         filtered: profitData.filteredCount > 0,
-        breakEvenUniPrice: `$${profitData.breakEvenUniPrice.toFixed(2)}`
+        breakEvenUniPrice: `$${profitData.breakEvenUniPrice.toFixed(2)}`,
+        allTokensCount: profitData.allTokensCount
     };
 }
 
