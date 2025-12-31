@@ -49,9 +49,17 @@
             <!-- Profit Stats Grid -->
             <div class="hero-stats">
                 <div class="stat-col">
-                    <div class="stat-label">Cost to Claim <i data-lucide="info" class="info-icon" id="costTooltip"></i>
+                    <div class="stat-label">
+                        Cost to Claim <i data-lucide="info" class="info-icon" id="costTooltip"></i>
                     </div>
                     <div id="uniCost" class="stat-val">--</div>
+
+                    <!-- Gas Strategy Toggle -->
+                    <div class="gas-toggle-container">
+                        <button class="gas-btn active" data-mode="standard">Std</button>
+                        <button class="gas-btn" data-mode="fast" title="Fast (1.25x)">⚡</button>
+                        <button class="gas-btn" data-mode="instant" title="War Mode (1.5x + 10 Gwei)">⚔️</button>
+                    </div>
                 </div>
                 <div class="stat-col right-align">
                     <div class="stat-label">NET PROFIT</div>

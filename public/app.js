@@ -15,8 +15,10 @@ let appState = {
     jarValue: 0,
     costToBurn: 0,
     netProfit: 0,
-    dailyGrowth: 0, // Estimated $/day
-    profitable: false
+    dailyGrowth: 0,
+    profitable: false,
+    scenarios: null, // Store backend strategies
+    activeMode: 'standard' // standard, fast, instant
 };
 
 // DOM Elements
@@ -28,6 +30,9 @@ const els = {
     netProfit: document.getElementById('netProfit'),
     statusBanner: document.getElementById('statusBanner'),
     executeBtn: document.getElementById('executeBtn'),
+
+    // Gas
+    gasBtns: document.querySelectorAll('.gas-btn'),
 
     // Timeline
     proj1d: document.getElementById('proj1d'),
@@ -50,10 +55,22 @@ async function init() {
 
     setupNotifications();
     setupEventListeners();
+    setupGasToggles();
 
     // Initial Load
     await refreshData();
     setInterval(refreshData, REFRESH_INTERVAL);
+}
+
+function setupGasToggles() {
+    els.gasBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            els.gasBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            appState.activeMode = btn.dataset.mode;
+            if (appState.scenarios) updateActiveModeData(); // Refresh View
+        });
+    });
 }
 
 function setupNotifications() {
@@ -91,7 +108,7 @@ async function connectWallet() {
 
             const address = await signer.getAddress();
             document.getElementById('connectWallet').textContent = `${address.substring(0, 6)}...${address.substring(38)}`;
-            els.executeBtn.textContent = appState.profitable ? "Burn & Claim (Ready)" : "Not Profitable";
+            updateButtonState();
         } catch (error) {
             console.error("User denied account access");
         }
@@ -113,6 +130,11 @@ async function refreshData() {
         const profitData = await profitRes.json();
         const impactData = await impactRes.json();
 
+        // Check if gas scenarios exist (backend support)
+        if (profitData.scenarios) {
+            appState.scenarios = profitData.scenarios;
+        }
+
         updateState(balanceData, profitData, impactData);
         renderUI(balanceData);
 
@@ -123,35 +145,36 @@ async function refreshData() {
 
 function updateState(balance, profit, impact) {
     appState.jarValue = balance.totalValueUSD || 0;
-    appState.costToBurn = profit.costUSD || 0;
-    appState.netProfit = profit.netProfitUSD || 0;
 
-    // Estimate Growth: Impact stats cover ~7 days. 
-    // Heuristic: If we burned $X in 7 days, the jar grew by ~$X/7 per day roughly (assuming equilibrium).
-    // Or simpler: Current Value / Age? No.
-    // Let's use the impact stats: "totalValueBurnedUSD" / 7
+    // Estimate Growth
     const burned7d = parseFloat(impact.totalValueBurnedUSD.replace(/[^0-9.-]+/g, "")) || 0;
-    appState.dailyGrowth = (burned7d / 7) || 100; // Default fallback $100/day
+    appState.dailyGrowth = (burned7d / 7) || 100;
 
-    appState.profitable = appState.netProfit > 0;
-
-    // Notification Check
-    if (NOTIFY_ENABLED && appState.profitable) {
-        new Notification("Ember Alert", { body: `Profitable! Net: $${appState.netProfit.toFixed(2)}` });
-        NOTIFY_ENABLED = false; // Alert once
-        els.notifyToggle.checked = false;
-    }
+    updateActiveModeData();
 }
 
-function renderUI(balanceData) {
+function updateActiveModeData() {
+    if (!appState.scenarios) return;
+
+    const scenario = appState.scenarios[appState.activeMode];
+    appState.costToBurn = scenario.costUSD || 0;
+    appState.netProfit = scenario.netProfitUSD || 0;
+    appState.profitable = appState.netProfit > 0;
+
+    // Re-render relevant parts if not first load
+    // But since renderUI is called after this in refresh, we are good.
+    // If called from button click, we need to manually trigger render of values.
+    renderValuesOnly();
+}
+
+function renderValuesOnly() {
     // 1. Hero Card Value
     els.totalValue.textContent = `$${appState.jarValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     els.uniCost.textContent = `$${appState.costToBurn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
     // 2. Net Profit & Coloring
-    const profitEls = document.querySelectorAll('.profit-text');
     const isProfit = appState.netProfit > 0;
-    const isClose = !isProfit && (appState.netProfit > -(appState.costToBurn * 0.1)); // Within 10%
+    const isClose = !isProfit && (appState.netProfit > -(appState.costToBurn * 0.1));
 
     els.netProfit.textContent = (appState.netProfit >= 0 ? '+' : '') + `$${appState.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
     els.netProfit.style.color = isProfit ? 'var(--accent-green)' : (isClose ? 'var(--accent-yellow)' : 'var(--accent-red)');
@@ -186,17 +209,39 @@ function renderUI(balanceData) {
     els.statusBanner.innerHTML = `<i data-lucide="${statusIcon}"></i><span>${statusText}</span>`;
     lucide.createIcons();
 
-    // 6. Action Button
-    els.executeBtn.disabled = !isProfit;
+    updateButtonState();
+    renderProjections();
+}
+
+function updateButtonState() {
+    els.executeBtn.disabled = !appState.profitable;
     if (signer) {
-        els.executeBtn.textContent = isProfit ? "Burn & Claim (Ready)" : "Not Profitable";
+        els.executeBtn.textContent = appState.profitable ? "Burn & Claim (Ready)" : "Not Profitable";
+    }
+}
+
+function renderUI(balanceData) {
+    if (appState.scenarios) {
+        renderValuesOnly();
     }
 
+    // 8. Assets List
+    renderAssets(balanceData.tokens);
+
+    // Notification Check
+    if (NOTIFY_ENABLED && appState.profitable) {
+        new Notification("Ember Alert", { body: `Profitable! Net: $${appState.netProfit.toFixed(2)}` });
+        NOTIFY_ENABLED = false; // Alert once
+        els.notifyToggle.checked = false;
+    }
+}
+
+function renderProjections() {
     // 7. Timeline Projections (Simple Interest)
     // Formula: Current + (Daily * Days) - Cost
     const project = (days) => {
         const futureVal = appState.jarValue + (appState.dailyGrowth * days);
-        const futureProfit = futureVal - appState.costToBurn;
+        const futureProfit = futureVal - appState.costToBurn; // Cost might rise too, but let's assume static
         return (futureProfit >= 0 ? '+' : '') + `$${futureProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
     };
 
@@ -208,9 +253,6 @@ function renderUI(balanceData) {
     [els.proj1d, els.proj7d, els.proj30d].forEach(el => {
         el.style.color = el.textContent.includes('+') ? 'var(--accent-green)' : 'var(--text-tertiary)';
     });
-
-    // 8. Assets List (With Dust Filter)
-    renderAssets(balanceData.tokens);
 }
 
 function renderAssets(tokens) {

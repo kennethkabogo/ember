@@ -257,6 +257,45 @@ header {
   cursor: help;
 }
 
+/* Gas Toggle */
+.gas-toggle-container {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.gas-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.gas-btn:hover {
+  color: var(--text-primary);
+}
+
+.gas-btn.active {
+  background: var(--bg-hover);
+  color: var(--accent-green);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.gas-btn[data-mode="instant"].active {
+  color: var(--accent-red);
+}
+
+/* War Mode Red */
+
 /* Status Banner */
 .status-banner {
   display: flex;

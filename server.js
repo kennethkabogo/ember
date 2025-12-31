@@ -217,17 +217,42 @@ app.get('/api/profitability', async (req, res) => {
             fetchThresholdData(),
             getUniPrice()
         ]);
-        const gasPriceGwei = Number(ethers.formatUnits(feeData.gasPrice || 0n, 'gwei'));
-        const optimal = await calculateOptimalBurn(jarData.tokens, uniPrice, thresholdData.threshold, gasPriceGwei);
+
+        // Base Gas Price (Standard)
+        const baseGasGwei = Number(ethers.formatUnits(feeData.gasPrice || 0n, 'gwei'));
+
+        // Strategies
+        const strategies = {
+            standard: baseGasGwei,
+            fast: baseGasGwei * 1.25, // 25% bump
+            instant: baseGasGwei * 1.5 + 10 // 50% bump + 10 Gwei priority bribe (War Mode)
+        };
+
+        const scenarios = {};
+        let optimal = null;
+
+        // Calculate for each strategy
+        for (const [key, price] of Object.entries(strategies)) {
+            const result = await calculateOptimalBurn(jarData.tokens, uniPrice, thresholdData.threshold, price);
+            scenarios[key] = {
+                gasPriceGwei: price,
+                costUSD: result.totalJarValueUSD - result.netProfit, // Total cost (UNI + Gas)
+                netProfitUSD: result.netProfit,
+                formatted: formatProfitData(result)
+            };
+            if (key === 'standard') optimal = result;
+        }
 
         res.json(sanitizeResponse({
             success: true,
-            ...formatProfitData(optimal),
+            ...formatProfitData(optimal), // Default to standard for backward compat
+            scenarios, // New Predictor Data
             optimalTokens: optimal.tokenBreakdown.map(t => t.address),
-            gasPriceGwei,
+            gasPriceGwei: baseGasGwei,
             timestamp: Date.now()
         }));
     } catch (error) {
+        console.error(error);
         res.status(500).json(sanitizeResponse({ success: false, error: 'Failed' }));
     }
 });
