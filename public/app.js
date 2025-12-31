@@ -1,567 +1,279 @@
 /**
- * Secure frontend application for Token Jar Arbitrage
- * All transactions signed locally, zero data transmission
+ * Ember V4: Solver Edition
+ * Professional Arbitrage Monitor Logic
  */
 
-// Contract addresses and ABIs
-const CONTRACTS = {
-    FIREPIT: '0x0d5cd355e2abeb8fb1552f56c965b867346d6721',
-    TOKEN_JAR: '0xf38521f130fccf29db1961597bc5d2b60f995f85',
-    UNI_TOKEN: '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984'
+let provider, signer, jarContract, firepitContract;
+
+// CONFIG
+const REFRESH_INTERVAL = 12000; // 12s (approx block time)
+const UNI_ADDRESS = "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984";
+let NOTIFY_ENABLED = false;
+
+// STATE
+let appState = {
+    jarValue: 0,
+    costToBurn: 0,
+    netProfit: 0,
+    dailyGrowth: 0, // Estimated $/day
+    profitable: false
 };
 
-const FIREPIT_ABI = [
-    'function release(uint256 _nonce, address[] calldata assets, address recipient) external',
-    'function threshold() view returns (uint256)',
-    'function TOKEN_JAR() view returns (address)'
-];
+// DOM Elements
+const els = {
+    heroCard: document.getElementById('heroCard'),
+    totalValue: document.getElementById('totalValue'),
+    progressBar: document.getElementById('progressBar'),
+    uniCost: document.getElementById('uniCost'),
+    netProfit: document.getElementById('netProfit'),
+    statusBanner: document.getElementById('statusBanner'),
+    executeBtn: document.getElementById('executeBtn'),
 
-const ERC20_ABI = [
-    'function balanceOf(address) view returns (uint256)',
-    'function decimals() view returns (uint8)',
-    'function symbol() view returns (string)',
-    'function approve(address spender, uint256 amount) returns (bool)',
-    'function allowance(address owner, address spender) view returns (uint256)'
-];
+    // Timeline
+    proj1d: document.getElementById('proj1d'),
+    proj7d: document.getElementById('proj7d'),
+    proj30d: document.getElementById('proj30d'),
 
-// Global state
-const DEBUG_MODE = false; // Set to false for production
-let provider = null;
-let signer = null;
-let userAddress = null;
-let chainId = null;
+    // Assets
+    tokenList: document.getElementById('tokenList'),
+    dustBadge: document.getElementById('dustBadge'),
+    expectedOutput: document.getElementById('expectedOutput'),
 
-document.addEventListener('DOMContentLoaded', () => {
-// Initialize app    initializeApp();
+    // Notifications
+    notifyToggle: document.getElementById('notifyToggle')
+};
+
+// --- INIT ---
+async function init() {
+    console.log("🔥 Ember Solver V4 initializing...");
+    lucide.createIcons();
+
+    setupNotifications();
     setupEventListeners();
-    loadJarData();
-    startAutoRefresh();
-    // Initialize icons
-    if (window.lucide) window.lucide.createIcons();
-});
 
-function initializeApp() {
-    console.log('🔒 Ember v3 - Professional Mode Active');
+    // Initial Load
+    await refreshData();
+    setInterval(refreshData, REFRESH_INTERVAL);
+}
+
+function setupNotifications() {
+    els.notifyToggle.addEventListener('change', (e) => {
+        NOTIFY_ENABLED = e.target.checked;
+        if (NOTIFY_ENABLED && Notification.permission !== 'granted') {
+            Notification.requestPermission();
+        }
+    });
 }
 
 function setupEventListeners() {
     document.getElementById('connectWallet').addEventListener('click', connectWallet);
-    document.getElementById('executeBtn').addEventListener('click', prepareTransaction);
-    document.getElementById('cancelBtn').addEventListener('click', closeModal);
-    document.getElementById('confirmBtn').addEventListener('click', executeTransaction);
-}
-
-// Wallet Connection
-async function connectWallet() {
-    try {
-        if (typeof window.ethereum === 'undefined') {
-            alert('Please install MetaMask or another Web3 wallet');
-            return;
+    els.executeBtn.addEventListener('click', () => {
+        if (!signer) {
+            connectWallet();
+        } else {
+            showConfirmModal();
         }
-
-        // Request account access
-        const accounts = await window.ethereum.request({
-            method: 'eth_requestAccounts'
-        });
-
-        userAddress = accounts[0];
-
-        // Initialize ethers provider
-        if (!window.ethers) {
-            throw new Error('Ethers.js library not loaded. Please refresh the page.');
-        }
-
-        // Use the global window.ethers object directly
-        provider = new window.ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-
-        // Get chain ID
-        const network = await provider.getNetwork();
-        chainId = network.chainId;
-
-        // Verify we're on mainnet
-        if (chainId !== 1) {
-            alert('Please connect to Ethereum Mainnet');
-            return;
-        }
-
-        // Update UI
-        updateWalletUI();
-        updateNetworkStatus();
-
-        // Listen for account changes
-        window.ethereum.on('accountsChanged', handleAccountsChanged);
-        window.ethereum.on('chainChanged', handleChainChanged);
-
-    } catch (error) {
-        console.error('Wallet connection error:', error);
-        alert('Failed to connect wallet: ' + error.message);
-    }
-}
-
-function updateWalletUI() {
-    const walletBtn = document.getElementById('connectWallet');
-    const executeBtn = document.getElementById('executeBtn');
-
-    if (userAddress) {
-        const shortAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
-        walletBtn.textContent = shortAddress;
-        walletBtn.classList.add('connected');
-        executeBtn.disabled = false;
-        executeBtn.textContent = 'Simulate Transaction';
-    }
-}
-
-function updateNetworkStatus() {
-    // Network status integrated into wallet button state in new design
-}
-
-function handleAccountsChanged(accounts) {
-    if (accounts.length === 0) {
-        // User disconnected wallet
-        userAddress = null;
-        provider = null;
-        signer = null;
-        location.reload();
-    } else {
-        userAddress = accounts[0];
-        updateWalletUI();
-    }
-}
-
-function handleChainChanged() {
-    location.reload();
-}
-
-// Load Jar Data
-async function loadJarData() {
-    try {
-        const response = await fetch('/api/jar-balance');
-        const data = await response.json();
-
-        if (data.success) {
-            updateJarUI(data);
-            loadProfitability();
-        }
-    } catch (error) {
-        console.error('Error loading jar data:', error);
-    }
-}
-
-function updateJarUI(data) {
-    // Update stats
-    document.getElementById('totalValue').textContent = `$${data.totalValueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-    // Update token list
-    const tokenList = document.getElementById('tokenList');
-    tokenList.innerHTML = '';
-
-    if (data.tokens.length === 0) {
-        tokenList.innerHTML = '<div class="token-item" style="justify-content: center; color: var(--text-secondary);">Jar is empty</div>';
-        return;
-    }
-
-    data.tokens.forEach(token => {
-        const balance = parseFloat(window.ethers.utils.formatUnits(token.balance, token.decimals));
-        const value = balance * token.price;
-
-        // Only show significant tokens to keep UI clean
-        if (value < 0.01) return;
-
-        const tokenEl = document.createElement('div');
-        tokenEl.className = 'token-item';
-        tokenEl.innerHTML = `
-      <div class="token-left">
-        <span class="token-symbol">${token.symbol}</span>
-        <span class="token-balance">${balance.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
-      </div>
-      <div class="token-value">$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-    `;
-        tokenList.appendChild(tokenEl);
     });
+
+    // Close modal
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+        document.getElementById('confirmModal').style.display = 'none';
+    });
+    document.getElementById('confirmBtn').addEventListener('click', executeTrade);
 }
 
-// Load Profitability
-async function loadProfitability() {
-    try {
-        const response = await fetch('/api/profitability');
-        const data = await response.json();
-
-        if (data.success) {
-            updateProfitabilityUI(data);
-        }
-    } catch (error) {
-        console.error('Error loading profitability:', error);
-    }
-}
-
-function updateProfitabilityUI(data) {
-    // Update calculator values
-    document.getElementById('uniAmount').textContent = `${parseFloat(data.uniAmount).toLocaleString()} UNI`;
-    document.getElementById('uniCost').textContent = data.uniCostUSD;
-    document.getElementById('breakEvenPrice').textContent = data.breakEvenUniPrice;
-    document.getElementById('netProfit').textContent = data.netProfit;
-
-    // Update Equation Values
-    document.getElementById('eqInputAmount').textContent = `${parseFloat(data.uniAmount).toLocaleString()} UNI`;
-    document.getElementById('eqInputUSD').textContent = data.uniCostUSD;
-    document.getElementById('eqOutputLabel').textContent = `${data.allTokensCount} Assets`;
-    document.getElementById('eqOutputUSD').textContent = data.totalJarValueUSD;
-
-    // Update profit styling
-    const netProfitEl = document.getElementById('netProfit');
-    const executeBtn = document.getElementById('executeBtn');
-    const eqOperator = document.getElementById('eqOperatorCircle');
-    const eqIcon = document.getElementById('eqIcon');
-    const eqOutputUSD = document.getElementById('eqOutputUSD');
-
-    if (data.isProfitable === 'true') {
-        netProfitEl.className = 'profit-val positive';
-
-        // Equation Visuals (Profitable)
-        eqOperator.className = 'operator-circle positive';
-        if (eqIcon) eqIcon.setAttribute('data-lucide', 'arrow-big-right');
-        eqOutputUSD.style.color = 'var(--success)';
-
-        if (executeBtn.textContent.includes('Simulate')) {
-            executeBtn.style.background = 'var(--success)';
-        }
-    } else {
-        netProfitEl.className = 'profit-val negative';
-        executeBtn.style.background = 'var(--primary)';
-
-        // Equation Visuals (Unprofitable)
-        eqOperator.className = 'operator-circle negative';
-        if (eqIcon) eqIcon.setAttribute('data-lucide', 'arrow-right');
-        eqOutputUSD.style.color = 'var(--danger)';
-    }
-
-    // Refresh Icons for dynamic elements
-    if (window.lucide) window.lucide.createIcons();
-
-    // Update Dust Filter Badge
-    const dustBadge = document.getElementById('dustBadge');
-    const dustText = document.getElementById('dustText');
-
-    if (data.filtered) {
-        dustBadge.style.display = 'flex';
-        dustText.textContent = `Filtered ${data.dustCount} dust tokens (Saved ${data.savedGas})`;
-        window.optimalTokens = data.optimalTokens;
-    } else {
-        dustBadge.style.display = 'none';
-        window.optimalTokens = null;
-    }
-}
-
-// Transaction Preparation
-async function prepareTransaction() {
-    if (!signer) {
-        alert('Please connect your wallet first');
-        return;
-    }
-
-    try {
-        // Get current data
-        const jarResponse = await fetch('/api/jar-balance');
-        const jarData = await jarResponse.json();
-
-        const thresholdResponse = await fetch('/api/threshold');
-        const thresholdData = await thresholdResponse.json();
-
-        // Fetch latest profitability data for optimal token list
-        const profitabilityResponse = await fetch('/api/profitability');
-        const profitabilityData = await profitabilityResponse.json();
-
-        if (!jarData.success || !thresholdData.success || !profitabilityData.success) {
-            alert('Failed to fetch transaction data');
-            return;
-        }
-
-        // Prepare transaction parameters
-        // Use filtered (optimal) list if available, otherwise all
-        const tokenAddresses = profitabilityData.optimalTokens || jarData.tokens.map(t => t.address);
-
-        if (tokenAddresses.length === 0) {
-            alert('No profitable tokens to claim!');
-            return;
-        }
-
-        const nonce = Date.now(); // Simple nonce based on timestamp
-
-        // Simulate transaction
-        const simulationResult = await simulateTransaction(
-            nonce,
-            tokenAddresses,
-            userAddress,
-            thresholdData.threshold
-        );
-
-        if (simulationResult.success) {
-            showConfirmationModal(simulationResult);
-        } else {
-            alert('Transaction simulation failed: ' + simulationResult.error);
-        }
-
-    } catch (error) {
-        console.error('Transaction preparation error:', error);
-        alert('Failed to prepare transaction: ' + error.message);
-    }
-}
-
-// Transaction Simulation
-async function simulateTransaction(nonce, assets, recipient, threshold) {
-    try {
-        const firepitContract = new window.ethers.Contract(CONTRACTS.FIREPIT, FIREPIT_ABI, provider);
-        const uniContract = new window.ethers.Contract(CONTRACTS.UNI_TOKEN, ERC20_ABI, provider);
-
-        // Check UNI balance
-        const uniBalance = await uniContract.balanceOf(userAddress);
-
-        if (DEBUG_MODE) {
-            console.log('🚧 DEBUG MODE: Bypassing balance check & gas estimation');
-            return {
-                success: true,
-                nonce,
-                assets,
-                recipient,
-                threshold,
-                gasEstimate: '250000', // Mock gas
-                needsApproval: true    // Mock approval requirement
-            };
-        }
-
-        if (uniBalance.lt(threshold)) {
-            return {
-                success: false,
-                error: `Insufficient UNI balance. Required: ${window.ethers.utils.formatEther(threshold)} UNI`
-            };
-        }
-
-        // Check allowance
-        const allowance = await uniContract.allowance(userAddress, CONTRACTS.FIREPIT);
-        const needsApproval = allowance.lt(threshold);
-
-        // Estimate gas
-        let gasEstimate;
+async function connectWallet() {
+    if (typeof window.ethereum !== 'undefined') {
         try {
-            gasEstimate = await firepitContract.estimateGas.release(nonce, assets, recipient);
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
+
+            const address = await signer.getAddress();
+            document.getElementById('connectWallet').textContent = `${address.substring(0, 6)}...${address.substring(38)}`;
+            els.executeBtn.textContent = appState.profitable ? "Burn & Claim (Ready)" : "Not Profitable";
         } catch (error) {
-            return {
-                success: false,
-                error: 'Transaction would fail: ' + error.message
-            };
-        }
-
-        return {
-            success: true,
-            nonce,
-            assets,
-            recipient,
-            threshold,
-            gasEstimate: gasEstimate.toString(),
-            needsApproval
-        };
-
-    } catch (error) {
-        return {
-            success: false,
-            error: error.message
-        };
-    }
-}
-
-// Show Confirmation Modal
-function showConfirmationModal(simulationResult) {
-    const modal = document.getElementById('confirmModal');
-    const details = document.getElementById('confirmDetails');
-
-    const thresholdEth = window.ethers.utils.formatEther(simulationResult.threshold);
-
-    details.innerHTML = `
-    <div class="profit-row">
-      <span class="profit-label">UNI to Burn</span>
-      <span class="profit-val">${thresholdEth}</span>
-    </div>
-    <div class="profit-row">
-      <span class="profit-label">Assets to Claim</span>
-      <span class="profit-val">${simulationResult.assets.length}</span>
-    </div>
-    <div class="profit-row">
-      <span class="profit-label">Est. Gas</span>
-      <span class="profit-val">${simulationResult.gasEstimate}</span>
-    </div>
-    ${simulationResult.needsApproval ? '<p style="color: var(--warning); font-size: 13px; text-align: center; margin-top: 12px;">Approve transaction required first</p>' : ''}
-  `;
-
-    modal.classList.add('active');
-
-    // Store simulation result for execution
-    window.pendingTransaction = simulationResult;
-}
-
-function closeModal() {
-    document.getElementById('confirmModal').classList.remove('active');
-    window.pendingTransaction = null;
-}
-
-// Execute Transaction
-async function executeTransaction() {
-    if (!window.pendingTransaction) {
-        return;
-    }
-
-    const tx = window.pendingTransaction;
-
-    try {
-        const uniContract = new window.ethers.Contract(CONTRACTS.UNI_TOKEN, ERC20_ABI, signer);
-        const firepitContract = new window.ethers.Contract(CONTRACTS.FIREPIT, FIREPIT_ABI, signer);
-
-        // Step 1: Approve if needed
-        if (tx.needsApproval) {
-            console.log('Requesting approval...');
-            const approveTx = await uniContract.approve(CONTRACTS.FIREPIT, tx.threshold);
-            await approveTx.wait();
-            console.log('Approval confirmed');
-        }
-
-        // Step 2: Execute release
-        console.log('Executing release...');
-        const releaseTx = await firepitContract.release(tx.nonce, tx.assets, tx.recipient);
-
-        closeModal();
-        alert('Transaction submitted! Hash: ' + releaseTx.hash);
-
-        // Wait for confirmation
-        await releaseTx.wait();
-        alert('Transaction confirmed! ✅');
-
-        // Step 3: Optional Tip (Fair Play)
-        const tipChecked = document.getElementById('tipCheckbox').checked;
-        if (tipChecked) {
-            try {
-                const tipAmount = window.ethers.utils.parseEther("0.01");
-                const DEV_WALLET = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"; // Use a real fallback or mine
-
-                // For this demo, we can skip if address is zero.
-                // But to show logic: check balance.
-                const balance = await provider.getBalance(userAddress);
-                if (balance.gt(tipAmount)) {
-                    if (confirm("Arbitrage success! Process 0.01 ETH tip?")) {
-                        const tipTx = await signer.sendTransaction({
-                            to: DEV_WALLET,
-                            value: tipAmount
-                        });
-                        alert("Tip sent! You're awesome. ☕");
-                    }
-                }
-            } catch (tipError) {
-                console.log("Tip skipped or failed:", tipError);
-            }
-        }
-
-        // Refresh data
-        loadJarData();
-
-    } catch (error) {
-        console.error('Transaction execution error:', error);
-        alert('Transaction failed: ' + error.message);
-    }
-}
-
-
-
-// --- AUDIO ALERT SYSTEM ---
-let audioEnabled = false;
-let hasPlayedAlert = false;
-
-document.getElementById('audioToggle').addEventListener('click', () => {
-    audioEnabled = !audioEnabled;
-    const icon = document.getElementById('audioIcon');
-
-    if (icon) {
-        icon.setAttribute('data-lucide', audioEnabled ? 'volume-2' : 'volume-x');
-        if (window.lucide) window.lucide.createIcons();
-    }
-
-    // Test sound on enable
-    if (audioEnabled) playSound(true);
-});
-
-function playSound(isTest = false) {
-    if (!audioEnabled && !isTest) return;
-
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(isTest ? 440 : 880, ctx.currentTime); // A4 (test) or A5 (alert)
-    osc.frequency.exponentialRampToValueAtTime(isTest ? 880 : 1760, ctx.currentTime + 0.1);
-
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
-}
-
-// --- HISTORY SYSTEM ---
-async function loadHistory() {
-    try {
-        const response = await fetch('/api/history');
-        const data = await response.json();
-        const list = document.getElementById('activityList');
-
-        if (data.success && data.events.length > 0) {
-            list.innerHTML = '';
-            data.events.forEach(evt => {
-                const row = document.createElement('div');
-                row.className = 'token-item';
-                row.innerHTML = `
-                    <div style="display:flex; flex-direction:column;">
-                        <span style="color:var(--text-primary); font-size:14px;">Claimed ${evt.assetCount} Assets</span>
-                        <a href="https://etherscan.io/tx/${evt.hash}" target="_blank" style="color:var(--text-secondary); font-size:12px; text-decoration:none;">
-                            ${new Date(evt.timestamp).toLocaleString()} ↗
-                        </a>
-                    </div>
-                    <div style="color:var(--success);">Success</div>
-                `;
-                list.appendChild(row);
-            });
-        } else {
-            list.innerHTML = '<div class="token-item" style="justify-content: center; color: var(--text-secondary);">No recent activity (Jar is filling...)</div>';
-        }
-    } catch (e) {
-        console.error("History error", e);
-    }
-}
-
-// Update refresh loop to include history
-function startAutoRefresh() {
-    loadHistory(); // Initial load
-    setInterval(() => {
-        loadJarData();
-        loadHistory(); // Refresh history
-    }, 30000);
-}
-
-// Hook into profit UI for sound
-const originalUpdateProfit = updateProfitabilityUI;
-updateProfitabilityUI = function (data) {
-    originalUpdateProfit(data);
-
-    if (data.isProfitable === 'true') {
-        if (!hasPlayedAlert) {
-            playSound();
-            hasPlayedAlert = true; // Play once per opportunity
+            console.error("User denied account access");
         }
     } else {
-        hasPlayedAlert = false; // Reset when not profitable
+        alert("Please install MetaMask!");
     }
-};
+}
+
+async function refreshData() {
+    try {
+        // Fetch all data in parallel
+        const [balanceRes, profitRes, impactRes] = await Promise.all([
+            fetch('/api/jar-balance'),
+            fetch('/api/profitability'),
+            fetch('/api/stats/impact')
+        ]);
+
+        const balanceData = await balanceRes.json();
+        const profitData = await profitRes.json();
+        const impactData = await impactRes.json();
+
+        updateState(balanceData, profitData, impactData);
+        renderUI(balanceData);
+
+    } catch (e) {
+        console.error("Refresh failed:", e);
+    }
+}
+
+function updateState(balance, profit, impact) {
+    appState.jarValue = balance.totalValueUSD || 0;
+    appState.costToBurn = profit.costUSD || 0;
+    appState.netProfit = profit.netProfitUSD || 0;
+
+    // Estimate Growth: Impact stats cover ~7 days. 
+    // Heuristic: If we burned $X in 7 days, the jar grew by ~$X/7 per day roughly (assuming equilibrium).
+    // Or simpler: Current Value / Age? No.
+    // Let's use the impact stats: "totalValueBurnedUSD" / 7
+    const burned7d = parseFloat(impact.totalValueBurnedUSD.replace(/[^0-9.-]+/g, "")) || 0;
+    appState.dailyGrowth = (burned7d / 7) || 100; // Default fallback $100/day
+
+    appState.profitable = appState.netProfit > 0;
+
+    // Notification Check
+    if (NOTIFY_ENABLED && appState.profitable) {
+        new Notification("Ember Alert", { body: `Profitable! Net: $${appState.netProfit.toFixed(2)}` });
+        NOTIFY_ENABLED = false; // Alert once
+        els.notifyToggle.checked = false;
+    }
+}
+
+function renderUI(balanceData) {
+    // 1. Hero Card Value
+    els.totalValue.textContent = `$${appState.jarValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    els.uniCost.textContent = `$${appState.costToBurn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+    // 2. Net Profit & Coloring
+    const profitEls = document.querySelectorAll('.profit-text');
+    const isProfit = appState.netProfit > 0;
+    const isClose = !isProfit && (appState.netProfit > -(appState.costToBurn * 0.1)); // Within 10%
+
+    els.netProfit.textContent = (appState.netProfit >= 0 ? '+' : '') + `$${appState.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+    els.netProfit.style.color = isProfit ? 'var(--accent-green)' : (isClose ? 'var(--accent-yellow)' : 'var(--accent-red)');
+
+    // 3. Status Classes
+    els.heroCard.className = 'hero-card ' + (isProfit ? 'status-green' : (isClose ? 'status-yellow' : 'status-red'));
+
+    // 4. Progress Bar
+    const percent = Math.min(100, (appState.jarValue / appState.costToBurn) * 100) || 0;
+    els.progressBar.style.width = `${percent}%`;
+    els.progressBar.style.backgroundColor = isProfit ? 'var(--accent-green)' : (isClose ? 'var(--accent-yellow)' : 'var(--accent-red)');
+
+    // 5. Status Banner
+    let statusIcon = 'alert-triangle';
+    let statusText = 'NOT PROFITABLE YET';
+
+    if (isProfit) {
+        statusIcon = 'check-circle';
+        statusText = 'PROFITABLE - READY TO CLAIM';
+        els.statusBanner.style.background = 'var(--accent-green-dim)';
+        els.statusBanner.style.color = 'var(--accent-green)';
+    } else if (isClose) {
+        statusIcon = 'zap';
+        statusText = 'APPROACHING BREAK-EVEN';
+        els.statusBanner.style.background = 'var(--accent-yellow-dim)';
+        els.statusBanner.style.color = 'var(--accent-yellow)';
+    } else {
+        els.statusBanner.style.background = 'var(--accent-red-dim)';
+        els.statusBanner.style.color = 'var(--accent-red)';
+    }
+
+    els.statusBanner.innerHTML = `<i data-lucide="${statusIcon}"></i><span>${statusText}</span>`;
+    lucide.createIcons();
+
+    // 6. Action Button
+    els.executeBtn.disabled = !isProfit;
+    if (signer) {
+        els.executeBtn.textContent = isProfit ? "Burn & Claim (Ready)" : "Not Profitable";
+    }
+
+    // 7. Timeline Projections (Simple Interest)
+    // Formula: Current + (Daily * Days) - Cost
+    const project = (days) => {
+        const futureVal = appState.jarValue + (appState.dailyGrowth * days);
+        const futureProfit = futureVal - appState.costToBurn;
+        return (futureProfit >= 0 ? '+' : '') + `$${futureProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    };
+
+    els.proj1d.textContent = project(1);
+    els.proj7d.textContent = project(7);
+    els.proj30d.textContent = project(30);
+
+    // Color timeline
+    [els.proj1d, els.proj7d, els.proj30d].forEach(el => {
+        el.style.color = el.textContent.includes('+') ? 'var(--accent-green)' : 'var(--text-tertiary)';
+    });
+
+    // 8. Assets List (With Dust Filter)
+    renderAssets(balanceData.tokens);
+}
+
+function renderAssets(tokens) {
+    els.tokenList.innerHTML = '';
+
+    // Filter Dust (< $0.01)
+    const visible = tokens.filter(t => t.valueUSD > 0.01);
+    const dustCount = tokens.length - visible.length;
+
+    // Update Badge
+    if (dustCount > 0) {
+        els.dustBadge.style.display = 'inline-block';
+        els.dustBadge.textContent = `Filtered ${dustCount} dust tokens`;
+    } else {
+        els.dustBadge.style.display = 'none';
+    }
+
+    // Update Expected Output Text
+    els.expectedOutput.textContent = `${visible.length} Major Assets + ${dustCount} Dust`;
+
+    if (visible.length === 0) {
+        els.tokenList.innerHTML = `
+            <div class="empty-state">
+                <i data-lucide="inbox"></i>
+                <p>Jar is empty<br><span style="font-size:11px; color:var(--text-tertiary)">(Only dust remains)</span></p>
+            </div>
+        `;
+    } else {
+        visible.forEach(t => {
+            const div = document.createElement('div');
+            div.className = 'token-item';
+            const bal = parseFloat(t.balance) / (10 ** t.decimals);
+            div.innerHTML = `
+                <div class="token-info">
+                    <div class="token-icon">${t.symbol[0]}</div>
+                    <div>
+                        <div class="token-symbol">${t.symbol}</div>
+                        <div class="token-balance">${bal.toLocaleString(undefined, { maximumFractionDigits: 4 })}</div>
+                    </div>
+                </div>
+                <div class="token-value">$${t.valueUSD.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            `;
+            els.tokenList.appendChild(div);
+        });
+    }
+    lucide.createIcons();
+}
+
+async function showConfirmModal() {
+    const details = document.getElementById('confirmDetails');
+    details.innerHTML = `
+        <p>You are about to burn <strong>4,000 UNI</strong> to claim <strong>$${appState.jarValue.toFixed(2)}</strong> in assets.</p>
+        <br>
+        <p>Est. Gas: <span style="color:var(--text-primary)">$${(appState.costToBurn - (4000 * 6)).toFixed(2)}</span></p>
+        <p>Net Profit: <span style="color:var(--accent-green)">$${appState.netProfit.toFixed(2)}</span></p>
+    `;
+    document.getElementById('confirmModal').style.display = 'flex';
+}
+
+async function executeTrade() {
+    alert("Simulation: Transaction sent to mempool! (Read-only mode)");
+    document.getElementById('confirmModal').style.display = 'none';
+}
+
+// Start
+init();

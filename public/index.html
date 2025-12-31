@@ -4,8 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Token Jar</title>
+    <title>Ember - Solver Engine</title>
     <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -14,98 +15,113 @@
         <!-- Header -->
         <header>
             <div class="brand">
-                <h1>Ember</h1>
-                <p>Arbitrage Monitor</p>
+                <div class="brand-logo"><i data-lucide="layers"></i></div>
+                <div>
+                    <h1>EMBER</h1>
+                    <p>Arbitrage Monitor</p>
+                </div>
             </div>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <button id="audioToggle" class="icon-btn">
-                    <i data-lucide="volume-x" id="audioIcon"></i>
-                </button>
-                <button id="connectWallet" class="wallet-btn">Connect</button>
+            <div class="header-actions">
+                <div class="notify-toggle">
+                    <input type="checkbox" id="notifyToggle">
+                    <label for="notifyToggle" title="Notify me when profitable">
+                        <i data-lucide="bell"></i>
+                    </label>
+                </div>
+                <button id="connectWallet" class="wallet-btn">Connect Wallet</button>
             </div>
         </header>
 
-        <!-- Main Balance Display -->
-        <div class="balance-card">
-            <div class="balance-label">Total Value Locked</div>
-            <div id="totalValue" class="balance-amount">$0.00</div>
-            <div class="balance-change">
-                <span class="pulse-dot"></span> Live
+        <!-- Hero Card: Jar Value & Profitability -->
+        <div class="hero-card status-red" id="heroCard">
+            <div class="hero-header">
+                <span class="hero-label">JAR VALUE (LIVE)</span>
+                <span class="live-indicator"><span class="pulse-dot"></span> Live</span>
             </div>
-        </div>
 
-        <!-- Quick Stats -->
-        <div class="stats-grid">
-            <div class="stat-box">
-                <div class="stat-title">UNI Threshold</div>
-                <div id="uniAmount" class="stat-value">--</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-title">Target Price</div>
-                <div id="breakEvenPrice" class="stat-value" style="color: var(--warning);">--</div>
-            </div>
-        </div>
+            <div id="totalValue" class="hero-amount">$0.00</div>
 
-        <!-- Token List -->
-        <div class="token-section">
-            <h2 class="section-title">Assets</h2>
-            <div id="tokenList" class="token-list">
-                <!-- Tokens injected here -->
-                <div class="token-item" style="justify-content: center; color: var(--text-secondary); padding: 32px;">
-                    <div class="loading-spinner"></div>
+            <!-- Progress Bar -->
+            <div class="progress-track">
+                <div id="progressBar" class="progress-fill" style="width: 0%;"></div>
+            </div>
+
+            <!-- Profit Stats Grid -->
+            <div class="hero-stats">
+                <div class="stat-col">
+                    <div class="stat-label">Cost to Claim <i data-lucide="info" class="info-icon" id="costTooltip"></i>
+                    </div>
+                    <div id="uniCost" class="stat-val">--</div>
                 </div>
-            </div>
-            <!-- Dust Filter Badge -->
-            <div id="dustBadge" class="dust-filter-badge" style="display: none;">
-                <i data-lucide="filter" style="width:12px; height:12px;"></i>
-                <span id="dustText">Filtered 0 dust tokens</span>
-            </div>
-        </div>
-
-        <!-- The Visual Equation -->
-        <div class="equation-container">
-            <div class="equation-box input-box">
-                <div class="eq-icon-wrap"><i data-lucide="flame"></i></div>
-                <div class="eq-label">INPUT</div>
-                <div id="eqInputAmount" class="eq-value">4000 UNI</div>
-                <div id="eqInputUSD" class="eq-sub">--</div>
-            </div>
-
-            <div class="eq-operator">
-                <div id="eqOperatorCircle" class="operator-circle">
-                    <i data-lucide="arrow-right" id="eqIcon"></i>
+                <div class="stat-col right-align">
+                    <div class="stat-label">NET PROFIT</div>
+                    <div id="netProfit" class="stat-val profit-text">--</div>
                 </div>
             </div>
 
-            <div class="equation-box output-box">
-                <div class="eq-icon-wrap"><i data-lucide="gem"></i></div>
-                <div class="eq-label">OUTPUT</div>
-                <div id="eqOutputLabel" class="eq-value">Assets</div>
-                <div id="eqOutputUSD" class="eq-sub">--</div>
-            </div>
-        </div>
-
-        <!-- Profit Calculator & Execution -->
-        <div class="execution-panel">
-            <h2 class="section-title">Analysis</h2>
-
-            <div class="profit-row">
-                <span class="profit-label">Cost to Burn</span>
-                <span id="uniCost" class="profit-val">--</span>
-            </div>
-            <div class="profit-row">
-                <span class="profit-label">Net Profit</span>
-                <span id="netProfit" class="profit-val">--</span>
+            <!-- Status Banner -->
+            <div id="statusBanner" class="status-banner">
+                <i data-lucide="alert-triangle"></i>
+                <span>NOT PROFITABLE YET</span>
             </div>
 
-            <button id="executeBtn" class="execute-btn" disabled>
-                Connect Wallet
+            <!-- Action Button -->
+            <button id="executeBtn" class="action-btn" disabled>
+                Burn & Claim
             </button>
         </div>
 
-        <!-- Footer Security -->
-        <div class="security-badge">
-            <i data-lucide="shield-check" style="width: 14px; height: 14px;"></i>
+        <!-- Timeline Widget -->
+        <div class="widget-card">
+            <div class="widget-header">
+                <h3 class="widget-title">ESTIMATED PROFIT</h3>
+                <span class="widget-sub">At current growth rate</span>
+            </div>
+            <div class="timeline-grid">
+                <div class="timeline-item">
+                    <span class="time-label">24h</span>
+                    <span id="proj1d" class="time-val">--</span>
+                </div>
+                <div class="timeline-item">
+                    <span class="time-label">7d</span>
+                    <span id="proj7d" class="time-val">--</span>
+                </div>
+                <div class="timeline-item">
+                    <span class="time-label">30d</span>
+                    <span id="proj30d" class="time-val">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assets List (Collapsible/Bottom) -->
+        <div class="assets-section">
+            <div class="section-header">
+                <h2>ASSETS IN JAR</h2>
+                <div id="dustBadge" class="dust-badge" style="display:none;">Filtered 0 dust tokens</div>
+            </div>
+
+            <div id="tokenList" class="token-list">
+                <div class="empty-state">
+                    <i data-lucide="loader-2" class="spin"></i>
+                    <p>Scanning Jar...</p>
+                </div>
+            </div>
+
+            <div class="io-summary">
+                <div class="io-row">
+                    <span>Expected Input:</span>
+                    <span id="expectedInput">4,000 UNI</span>
+                </div>
+                <div class="io-row">
+                    <span>Expected Output:</span>
+                    <span id="expectedOutput">0 Assets ($0)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="security-footer">
+            <i data-lucide="shield-check"></i>
             <span>Secure Client-Side Execution</span>
         </div>
 
@@ -114,24 +130,20 @@
     <!-- Confirm Modal -->
     <div id="confirmModal" class="modal-overlay">
         <div class="modal-card">
-            <div
-                style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px; color: var(--primary);">
-                <i data-lucide="check-circle-2" style="width: 48px; height: 48px;"></i>
+            <div class="modal-icon">
+                <i data-lucide="check-circle-2"></i>
             </div>
-            <h2 class="section-title" style="text-align: center; margin-bottom: 24px;">Confirm Trade</h2>
-            <div id="confirmDetails" style="margin-bottom: 24px;"></div>
+            <h2 class="modal-title">Confirm Trade</h2>
+            <div id="confirmDetails" class="modal-details"></div>
 
-            <!-- Tip Jar -->
             <div class="tip-jar-box">
                 <input type="checkbox" id="tipCheckbox" checked>
                 <label for="tipCheckbox">
-                    Send 0.01 ETH Developer Tip?
-                    <i data-lucide="coffee"
-                        style="width: 14px; height: 14px; margin-left: 4px; vertical-align: middle;"></i>
+                    Send 0.01 ETH Developer Tip? <i data-lucide="coffee"></i>
                 </label>
             </div>
 
-            <div style="display: flex; gap: 12px;">
+            <div class="modal-actions">
                 <button id="cancelBtn" class="modal-btn secondary">Cancel</button>
                 <button id="confirmBtn" class="modal-btn primary">Confirm</button>
             </div>
