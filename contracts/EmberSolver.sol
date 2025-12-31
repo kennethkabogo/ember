@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 interface IFirepit {
@@ -14,7 +15,7 @@ interface IFirepit {
  * @notice Atomic Arbitrage Solver for Uniswap Firepit
  * @dev Flashloans UNI -> Burns -> Claims Dust -> Swaps to WETH -> Repays Loan -> Profit
  */
-contract EmberSolver is Ownable {
+contract EmberSolver is Ownable, ReentrancyGuard {
     
     // --- Configuration ---
     address public constant UNI = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
@@ -49,7 +50,7 @@ contract EmberSolver is Ownable {
         uint256 uniAmount, 
         address[] calldata tokens, 
         uint256 minProfitETH
-    ) external onlyOwner {
+    ) external onlyOwner nonReentrant {
         
         // 1. Get UNI (Flash Loan Logic Placeholder - assumes caller has approved or sends UNI)
         // In V2, we implement Balancer/Aave Flash Loan here.
@@ -98,7 +99,7 @@ contract EmberSolver is Ownable {
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: tokenIn,
                 tokenOut: WETH,
-                fee: 3000, // Assume 0.3% pool exists for most
+                fee: 3000, // TODO: V2 Use Quoter to find best pool (500, 3000, 10000)
                 recipient: address(this),
                 deadline: block.timestamp,
                 amountIn: amountIn,
@@ -120,4 +121,7 @@ contract EmberSolver is Ownable {
         uint256 bal = IERC20(token).balanceOf(address(this));
         IERC20(token).transfer(owner(), bal);
     }
+    
+    // Accept ETH from WETH withdrawals or Firepit (if it sends ETH)
+    receive() external payable {}
 }
